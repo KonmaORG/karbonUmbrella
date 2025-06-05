@@ -54,8 +54,7 @@ validator project_validation(
     when redeemer.action is {
       // 0 -> Accept
       0 -> {
-        let developer_addr =
-          addresses.create_address(datum.developer.1st, datum.developer.2nd)
+        let developer_addr = addresses.from_wallet(datum.developer)
         let tkname = utils.token_name_oref(oref)
         let value =
           value.from_token(
@@ -148,9 +147,9 @@ validator project_initiator(config_nft: PolicyId) {
             config_nft,
             constants.identication_tkn,
           )
-        let payout_addr = addresses.create_address(ref_datum.fees_address, "")
+        let payout_addr = addresses.from_wallet(ref_datum.fees_address)
         let project_validation_addr =
-          addresses.create_address(ref_datum.spend_address, "")
+          addresses.from_wallet(ref_datum.spend_address)
         let project_validation_output =
           find.output_by_addr(outputs, project_validation_addr)
         // got error while doing this

@@ -1,12 +1,12 @@
-use aiken/crypto.{VerificationKeyHash}
 use cardano/assets.{PolicyId}
-use types/utils.{AddressTuple, AssetClass, Multisig}
+use types/utils.{AssetClass, Multisig}
+use types/wallet.{Wallet}
 
 pub type ConfigDatum {
-  fees_address: VerificationKeyHash,
+  fees_address: Wallet,
   fees_amount: Int,
   fees_asset_class: AssetClass,
-  spend_address: VerificationKeyHash,
+  spend_address: Wallet,
   categories: List<ByteArray>,
   multisig_validator_group: Multisig,
   multisig_refutxoupdate: Multisig,
@@ -15,7 +15,7 @@ pub type ConfigDatum {
 }
 
 pub type ProjectDatum {
-  developer: AddressTuple,
+  developer: Wallet,
   document: ByteArray,
   category: ByteArray,
   asset_name: ByteArray,
