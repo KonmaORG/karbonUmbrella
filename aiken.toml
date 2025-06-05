@@ -20,9 +20,4 @@ name = "logical-mechanism/assist"
 version = "v0.5.1"
 source = "github"
 
-[[dependencies]]
-name = "cardano-fans/acca"
-version = "a3a886b1e3557d00ed491a73001020a533cf34cd"
-source = "github"
-
 [config]
