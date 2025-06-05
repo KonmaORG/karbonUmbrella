@@ -1,6 +1,6 @@
 use aiken/crypto.{VerificationKeyHash}
 use cardano/assets.{PolicyId}
-use types/utils.{AssetClass, Multisig}
+use types/utils.{AddressTuple, AssetClass, Multisig}
 
 pub type ConfigDatum {
   fees_address: VerificationKeyHash,
@@ -12,4 +12,13 @@ pub type ConfigDatum {
   multisig_refutxoupdate: Multisig,
   cet_policyid: PolicyId,
   cot_policyid: PolicyId,
+}
+
+pub type ProjectDatum {
+  developer: AddressTuple,
+  document: ByteArray,
+  category: ByteArray,
+  asset_name: ByteArray,
+  fees_amount: Int,
+  fees_asset_class: AssetClass,
 }
