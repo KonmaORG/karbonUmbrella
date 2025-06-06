@@ -11,3 +11,8 @@ pub type ProjectValidationRedeemer {
   amount: Int,
   oref: OutputReference,
 }
+
+pub type MarketplaceRedeemer {
+  Buy
+  Withdraw
+}

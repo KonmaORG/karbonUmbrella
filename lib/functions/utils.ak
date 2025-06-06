@@ -5,7 +5,9 @@ use aiken/crypto
 use cardano/assets.{AssetName, PolicyId, Value}
 use cardano/transaction.{InlineDatum, Input, Output, OutputReference}
 use cardano/value
+use constants
 use types/datum.{ConfigDatum, ProjectDatum}
+use types/token.{Token}
 
 pub fn is_category_from_supported_categories(
   categories: List<ByteArray>,
@@ -65,4 +67,14 @@ pub fn input_datum_by_nft(
 pub fn token_name_oref(oref: OutputReference) {
   let hashed = oref |> cbor.serialise |> crypto.blake2b_224
   hashed
+}
+
+pub fn calculate_payout_royalty(amount: Int) {
+  // royalty is constant
+  let marketplace = amount * constants.royalty_amt / 100
+  let seller = amount - marketplace
+  let marketplace_payout =
+    value.from_token(Token { pid: "", tkn: "", amt: marketplace })
+  let seller_payout = value.from_token(Token { pid: "", tkn: "", amt: seller })
+  (marketplace_payout, seller_payout)
 }

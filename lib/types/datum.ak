@@ -22,3 +22,8 @@ pub type ProjectDatum {
   fees_amount: Int,
   fees_asset_class: AssetClass,
 }
+
+pub type MarketplaceDatum {
+  owner: Wallet,
+  amount: Int,
+}
