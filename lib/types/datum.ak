@@ -27,3 +27,14 @@ pub type MarketplaceDatum {
   owner: Wallet,
   amount: Int,
 }
+
+pub type CETDatum {
+  location: ByteArray,
+  cet_qty: Int,
+  time: Int,
+}
+
+pub type CetCotConfig {
+  cet_policyid: PolicyId,
+  cot_policyid: PolicyId,
+}
