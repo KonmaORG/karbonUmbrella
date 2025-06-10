@@ -1,3 +1,4 @@
+use cardano/assets.{PolicyId}
 use cardano/transaction.{OutputReference}
 
 // Identification Redeemer type
@@ -15,4 +16,8 @@ pub type ProjectValidationRedeemer {
 pub type MarketplaceRedeemer {
   Buy
   Withdraw
+}
+
+pub type EmissionBurnRedeemer {
+  cot_policyid: PolicyId,
 }
