@@ -13,11 +13,13 @@ pub type ProjectValidationRedeemer {
   oref: OutputReference,
 }
 
+// Marketplace Redeemer type
 pub type MarketplaceRedeemer {
   Buy
   Withdraw
 }
 
+/// CET redemeer type
 pub type EmissionBurnRedeemer {
   cot_policyid: PolicyId,
 }
