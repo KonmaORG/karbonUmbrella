@@ -50,6 +50,25 @@ pub fn ref_datum_by_nft(
   }
 }
 
+pub fn script_address_check(
+  outputs: List<Output>,
+  policy_id: PolicyId,
+  token_name: ByteArray,
+  redeemer: AddressTuple,
+) {
+  expect Some(output) =
+    list.find(
+      outputs,
+      fn(o) { assets.quantity_of(o.value, policy_id, token_name) == 1 },
+    )
+  let address_data: Data = redeemer
+  expect InlineDatum(address_datum) = output.datum
+  and {
+    output.address == script_address_from_tuple(redeemer),
+    (address_datum == address_data)?,
+  }
+}
+
 pub fn input_datum_by_nft(
   inputs: List<Input>,
   pid: PolicyId,
@@ -67,6 +86,45 @@ pub fn input_datum_by_nft(
         input_datum_by_nft(rest, pid, tkn)
       }
     [] -> fail @"No Datum Found In inputs"
+  }
+}
+
+fn do_total_token_amount(
+  inputs: List<Input>,
+  cet_pid: PolicyId,
+  cot_pid: PolicyId,
+  cet_tkn: ByteArray,
+  cot_tkn: ByteArray,
+  cet_qty: Int,
+  cot_qty: Int,
+) {
+  when inputs is {
+    [input, ..rest] -> {
+      let cet_amt: Int =
+        assets.quantity_of(input.output.value, cet_pid, cet_tkn)
+      let cot_amt: Int =
+        assets.quantity_of(input.output.value, cot_pid, cot_tkn)
+      do_total_token_amount(
+        rest,
+        cet_pid,
+        cot_pid,
+        cet_tkn,
+        cot_tkn,
+        cet_qty + cet_amt,
+        cot_qty + cot_amt,
+      )
+    }
+    [] -> (cet_qty, cot_qty)
+  }
+}
+
+pub fn get_output_addr(script: PolicyId, inputs: List<Input>) {
+  expect Some(input) = list.head(inputs)
+  when input.output.address.stake_credential is {
+    Some(Inline(VerificationKey(skh))) ->
+      address.from_script(script)
+        |> address.with_delegation_key(skh)
+    _ -> fail @"Input Stake Componenet Missing"
   }
 }
 
@@ -113,25 +171,6 @@ pub fn script_address_from_tuple(key_hash_tuple: (PaymentKeyHash, StakeKeyHash))
   }
 }
 
-pub fn script_address_check(
-  outputs: List<Output>,
-  policy_id: PolicyId,
-  token_name: ByteArray,
-  redeemer: AddressTuple,
-) {
-  expect Some(output) =
-    list.find(
-      outputs,
-      fn(o) { assets.quantity_of(o.value, policy_id, token_name) == 1 },
-    )
-  let address_data: Data = redeemer
-  expect InlineDatum(address_datum) = output.datum
-  and {
-    output.address == script_address_from_tuple(redeemer),
-    address_datum == address_data,
-  }
-}
-
 pub fn find_ref_input(inputs: List<Input>, policy_id: PolicyId) {
   expect Some(input) =
     list.find(
@@ -150,8 +189,8 @@ pub fn must_have_one_output_with_policy(
     outputs,
     fn(o) {
       and {
-        list.has(o.value |> assets.policies, policy_id),
-        o.address == address,
+        list.has(o.value |> assets.policies, policy_id)?,
+        (o.address == address)?,
       }
     },
   ) == 1
@@ -185,44 +224,5 @@ pub fn must_send_remaining_token_to_addr(
         ],
       )
     payout.at_least(user_script, expected_output, tx.outputs)?
-  }
-}
-
-fn do_total_token_amount(
-  inputs: List<Input>,
-  cet_pid: PolicyId,
-  cot_pid: PolicyId,
-  cet_tkn: ByteArray,
-  cot_tkn: ByteArray,
-  cet_qty: Int,
-  cot_qty: Int,
-) {
-  when inputs is {
-    [input, ..rest] -> {
-      let cet_amt: Int =
-        assets.quantity_of(input.output.value, cet_pid, cet_tkn)
-      let cot_amt: Int =
-        assets.quantity_of(input.output.value, cot_pid, cot_tkn)
-      do_total_token_amount(
-        rest,
-        cet_pid,
-        cot_pid,
-        cet_tkn,
-        cot_tkn,
-        cet_qty + cet_amt,
-        cot_qty + cot_amt,
-      )
-    }
-    [] -> (cet_qty, cot_qty)
-  }
-}
-
-pub fn get_output_addr(script: PolicyId, inputs: List<Input>) {
-  expect Some(input) = list.head(inputs)
-  when input.output.address.stake_credential is {
-    Some(Inline(VerificationKey(skh))) ->
-      address.from_script(script)
-        |> address.with_delegation_key(skh)
-    _ -> fail @"Input Stake Componenet Missing"
   }
 }
