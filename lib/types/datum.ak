@@ -23,11 +23,13 @@ pub type ProjectDatum {
   fees_asset_class: AssetClass,
 }
 
+// Marketplace Datum type
 pub type MarketplaceDatum {
   owner: Wallet,
   amount: Int,
 }
 
+// CET Datum type
 pub type CETDatum {
   location: ByteArray,
   cet_qty: Int,
