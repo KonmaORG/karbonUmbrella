@@ -23,3 +23,11 @@ pub type MarketplaceRedeemer {
 pub type EmissionBurnRedeemer {
   cot_policyid: PolicyId,
 }
+
+pub type CampaignAction {
+  Support
+  Cancel
+  Finish
+  Refund
+  Release
+}

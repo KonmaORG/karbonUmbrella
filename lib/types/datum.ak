@@ -40,3 +40,24 @@ pub type CetCotConfig {
   cet_policyid: PolicyId,
   cot_policyid: PolicyId,
 }
+
+pub type CampaignState {
+  Initiated
+  Running
+  Cancelled
+  Finished
+  Released
+}
+
+pub type Milestone =
+  List<Bool>
+
+pub type CampaignDatum {
+  name: ByteArray,
+  goal: Int,
+  deadline: Int,
+  creator: Wallet,
+  milestone: Milestone,
+  state: CampaignState,
+  fraction: Int,
+}

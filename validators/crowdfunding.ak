@@ -1,31 +1,56 @@
+use aiken/collection/list
 use aiken/crypto.{VerificationKeyHash}
 use cardano/address.{Address, Script}
+use cardano/addresses
 use cardano/assets.{PolicyId}
 use cardano/transaction.{Input, Output, OutputReference, Transaction}
+use cardano/value
+use constants
+use functions/utils
+use types/datum.{
+  CampaignDatum, Cancelled, ConfigDatum, Finished, Initiated, Released, Running,
+}
+use types/moment.{Moment}
+use types/redeemer.{CampaignAction}
+use types/token.{Token}
+use validation/payout
 
-validator campaign(
-  creator: VerificationKeyHash,
-  nonce: OutputReference,
-  config_nft: PolicyId,
-) {
+validator campaign(config_nft: PolicyId) {
   mint(
     redeemer campaign_datum: CampaignDatum,
     policy_id self_script: PolicyId,
     tx: Transaction,
   ) {
     when campaign_datum.state is {
-      Finished | Cancelled -> utils.must_burn_reward_token(tx, self_script)
+      Finished | Cancelled ->
+        assets.quantity_of(tx.mint, self_script, campaign_datum.name) <= 0
       _ -> {
-        let ConfigDatum { state_token_script, .. } =
-          utils.ref_inputs_to_config_datum(tx.reference_inputs, config_nft)
-        validate_create_campaign(
-          tx,
-          self_script,
-          campaign_datum,
-          nonce,
+        expect CampaignDatum {
+          goal,
+          name,
+          deadline,
+          milestone,
           creator,
-          utils.script_address_from_tuple(state_token_script),
-        )
+          fraction,
+          state: Initiated,
+        } = campaign_datum
+        expect goal > 0
+        let script_addr = addresses.create_address(self_script, creator.sc)
+        let payout_value =
+          value.from_token(Token { pid: self_script, tkn: name, amt: fraction })
+        and {
+          // making sure the deadline is of future
+          moment.is_before(
+            Moment { start: 0, end: deadline },
+            tx.validity_range,
+          ),
+          // making sure the milestone[] is set to false, it will be true after payout release for each milestone
+          !list.has(milestone, True),
+          // checking that the rewward token is of `fraction` quantity
+          assets.quantity_of(tx.mint, self_script, name) == fraction,
+          // the reward token must be send to the `script`+`userStakeAddress`
+          payout.exact(script_addr, payout_value, tx.outputs),
+        }
       }
     }
   }
@@ -39,8 +64,12 @@ validator campaign(
     expect Some(Input { output: Output { address, .. }, .. }) =
       transaction.find_input(tx.inputs, o_ref)
     expect Script(self_script) = address.payment_credential
-    let ConfigDatum { multisig, platform, state_token_script } =
-      utils.ref_inputs_to_config_datum(tx.reference_inputs, config_nft)
+    let ConfigDatum { multisig, fees_address, .. } =
+      utils.ref_datum_by_nft(
+        tx.reference_inputs,
+        config_nft,
+        constants.identication_tkn,
+      )
     when (datum, redeemer) is {
       // Support campaign:
       (Some(current_datum), Support) ->
@@ -92,7 +121,7 @@ validator campaign(
             tx,
             self_script,
             campaign_datum,
-            platform,
+            fees_address,
             utils.script_address_from_tuple(state_token_script),
             multisig,
           )
