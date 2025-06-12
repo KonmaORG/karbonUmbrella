@@ -89,6 +89,38 @@ pub fn input_datum_by_nft(
   }
 }
 
+pub fn outputs_by_pid(
+  outputs: List<Output>,
+  pid: PolicyId,
+  tkn: ByteArray,
+) -> List<Output> {
+  let output =
+    when outputs is {
+      [output, ..rest] ->
+        if value.prove_exact_nft(output.value, pid, tkn) {
+          [output, ..outputs_by_pid(rest, pid, tkn)]
+        } else {
+          outputs_by_pid(rest, pid, tkn)
+        }
+      [] -> []
+    }
+  output
+}
+
+pub fn outputs_by_addr(outputs: List<Output>, addr: Address) -> List<Output> {
+  let output =
+    when outputs is {
+      [output, ..rest] ->
+        if output.address == addr {
+          [output, ..outputs_by_addr(rest, addr)]
+        } else {
+          outputs_by_addr(rest, addr)
+        }
+      [] -> []
+    }
+  output
+}
+
 fn do_total_token_amount(
   inputs: List<Input>,
   cet_pid: PolicyId,

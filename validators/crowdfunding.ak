@@ -11,7 +11,7 @@ use types/datum.{
   CampaignDatum, Cancelled, ConfigDatum, Finished, Initiated, Released, Running,
 }
 use types/moment.{Moment}
-use types/redeemer.{CampaignAction}
+use types/redeemer.{CampaignAction, Cancel, Finish, Refund, Release, Support}
 use types/token.{Token}
 use validation/payout
 
@@ -64,7 +64,7 @@ validator campaign(config_nft: PolicyId) {
     expect Some(Input { output: Output { address, .. }, .. }) =
       transaction.find_input(tx.inputs, o_ref)
     expect Script(self_script) = address.payment_credential
-    let ConfigDatum { multisig, fees_address, .. } =
+    let ConfigDatum { multisig_validator_group, fees_address, .. } =
       utils.ref_datum_by_nft(
         tx.reference_inputs,
         config_nft,
@@ -74,6 +74,15 @@ validator campaign(config_nft: PolicyId) {
       // Support campaign:
       (Some(current_datum), Support) ->
         if current_datum is campaign_datum: CampaignDatum {
+          let CampaignDatum { name, goal, fraction, .. } = campaign_datum
+          let fraction_amount = goal / fraction
+
+          // START HERE
+          expect [backer_reward_token,
+            script_reward_token] =
+            utils.outputs_by_pid(tx.outputs, self_script, name)
+          let (backer_amount, script_token) =
+            utils.outputs_by_addr(outputs, self_script, name)
           validate_support_campaign(
             tx,
             self_script,
@@ -89,7 +98,7 @@ validator campaign(config_nft: PolicyId) {
             tx,
             self_script,
             campaign_datum,
-            multisig,
+            multisig_validator_group,
             utils.script_address_from_tuple(state_token_script),
           )
         } else if current_datum is backer_datum: BackerDatum {
@@ -105,7 +114,7 @@ validator campaign(config_nft: PolicyId) {
           self_script,
           current_datum,
           utils.script_address_from_tuple(state_token_script),
-          multisig,
+          multisig_validator_group,
         )
       // Refund campaign:
       (Some(current_datum), Refund) ->
@@ -123,7 +132,7 @@ validator campaign(config_nft: PolicyId) {
             campaign_datum,
             fees_address,
             utils.script_address_from_tuple(state_token_script),
-            multisig,
+            multisig_validator_group,
           )
         } else {
           fail @"Invalid Refund Datum Type! Must be BackerDatum"
@@ -131,7 +140,7 @@ validator campaign(config_nft: PolicyId) {
       // NoDatum etc:
       _ -> {
         expect !utils.is_running_campaign(tx.reference_inputs, self_script)
-        utils.atleast_signedby(tx.extra_signatories, multisig)
+        utils.atleast_signedby(tx.extra_signatories, multisig_validator_group)
       }
     }
   }
