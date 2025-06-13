@@ -9,7 +9,7 @@ use cardano/transaction.{
 }
 use cardano/value
 use constants
-use types/datum.{ConfigDatum, ProjectDatum}
+use types/datum.{CampaignDatum, ConfigDatum, ProjectDatum, Running}
 use types/token.{Token}
 use types/utils.{AddressTuple, PaymentKeyHash, StakeKeyHash}
 use validation/payout
@@ -257,4 +257,9 @@ pub fn must_send_remaining_token_to_addr(
       )
     payout.at_least(user_script, expected_output, tx.outputs)?
   }
+}
+
+pub fn is_running_campaign(datum: CampaignDatum) -> Bool {
+  // must consume/refer state token UTxO
+  datum.state == Running
 }

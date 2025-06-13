@@ -3,7 +3,9 @@ use aiken/crypto.{VerificationKeyHash}
 use cardano/address.{Address, Script}
 use cardano/addresses
 use cardano/assets.{PolicyId}
-use cardano/transaction.{Input, Output, OutputReference, Transaction}
+use cardano/transaction.{
+  InlineDatum, Input, Output, OutputReference, Transaction,
+}
 use cardano/value
 use constants
 use functions/utils
@@ -74,22 +76,37 @@ validator campaign(config_nft: PolicyId) {
       // Support campaign:
       (Some(current_datum), Support) ->
         if current_datum is campaign_datum: CampaignDatum {
-          let CampaignDatum { name, goal, fraction, .. } = campaign_datum
+          let CampaignDatum { name, goal, fraction, creator, .. } =
+            campaign_datum
           let fraction_amount = goal / fraction
 
-          // START HERE
-          expect [backer_reward_token,
-            script_reward_token] =
+          expect [backer_reward_output,
+            script_reward_output] =
             utils.outputs_by_pid(tx.outputs, self_script, name)
-          let (backer_amount, script_token) =
-            utils.outputs_by_addr(outputs, self_script, name)
-          validate_support_campaign(
-            tx,
-            self_script,
-            datum: CampaignDatum { ..campaign_datum, state: Running },
-          )
+          expect [backer_amount_output,
+            script_token_output] =
+            utils.outputs_by_addr(
+              tx.outputs,
+              addresses.create_address(self_script, creator.sc),
+            )
+          let backer_reward_qty =
+            assets.quantity_of(backer_reward_output.value, self_script, name)
+          let script_reward_qty =
+            assets.quantity_of(script_reward_output.value, self_script, name)
+
+          let backer_lovelace_qty =
+            assets.lovelace_of(backer_amount_output.value)
+          let script_reward_qty_ =
+            assets.quantity_of(script_token_output.value, self_script, name)
+          expect InlineDatum(output_datum) = script_token_output.datum
+          and {
+            output_datum == current_datum,
+            utils.is_running_campaign(campaign_datum),
+            script_reward_qty == script_reward_qty_,
+            backer_lovelace_qty / fraction_amount == backer_reward_qty,
+          }
         } else {
-          fail @"Invalid Cancel Datum Type! Must be CampaignDatum"
+          fail @"Invalid Support Datum Type! Must be CampaignDatum"
         }
       // Cancel campaign:
       (Some(current_datum), Cancel) ->
