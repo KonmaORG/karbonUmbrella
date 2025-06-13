@@ -158,17 +158,60 @@ validator campaign(config_nft: PolicyId) {
 
       // Finish campaign:
       (Some(current_datum), Finish) ->
-        validate_finish_campaign(
-          tx,
-          self_script,
-          current_datum,
-          utils.script_address_from_tuple(state_token_script),
-          multisig_validator_group,
-        )
+        if current_datum is campaign_datum: CampaignDatum {
+          let is_signed_by_platform =
+            tx.verify_multisig(
+              tx.extra_signatories,
+              multisig_validator_group.signers,
+              multisig_validator_group.required,
+            )
+          let output_datum_data =
+            find.output_datum_by_addr(tx.outputs, script_address)
+          expect expected_datum_data: Data =
+            CampaignDatum { ..campaign_datum, state: Finished }
+          and {
+            if is_signed_by_platform? {
+              moment.is_after(
+                Moment { start: 0, end: campaign_datum.deadline },
+                tx.validity_range,
+              )
+            } else {
+              // must be signed by creator
+              list.has(tx.extra_signatories, campaign_datum.creator.pkh)
+            },
+            utils.campaign_state(campaign_datum, Running),
+            (output_datum_data == expected_datum_data)?,
+            utils.must_pay_to_script(
+              tx,
+              script_address,
+              campaign_datum: CampaignDatum {
+                ..campaign_datum,
+                state: Finished,
+              },
+            ),
+            // must burn reward tokens
+            assets.quantity_of(tx.mint, self_script, campaign_datum.name) <= 0,
+          }
+        } else if current_datum is BackerDatum {
+          let output_datum_data =
+            find.output_datum_by_addr(tx.outputs, script_address)
+          expect campaign_datum: CampaignDatum = output_datum_data
+          utils.campaign_state(campaign_datum, Running)
+        } else {
+          fail @"Invalid Finish Datum Type!"
+        }
       // Refund campaign:
       (Some(current_datum), Refund) ->
         if current_datum is backer_datum: BackerDatum {
-          tx |> validate_refund_support(self_script, backer_datum)
+          let output_datum_data =
+            find.output_datum_by_addr(tx.outputs, script_address)
+          expect campaign_datum: CampaignDatum = output_datum_data
+          and {
+            utils.campaign_state(campaign_datum, Cancelled),
+            utils.must_refund(tx, script_address, backer_datum)?,
+            // must burn reward tokens
+            assets.quantity_of(tx.mint, self_script, campaign_datum.name) <= 0,
+          }
         } else {
           fail @"Invalid Refund Datum Type! Must be BackerDatum"
         }

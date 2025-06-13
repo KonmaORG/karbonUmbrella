@@ -307,3 +307,41 @@ pub fn must_refund(
 
   output_lovelace >= input_lovelace
 }
+
+pub fn must_pay_to_script(
+  tx: Transaction,
+  script_address: Address,
+  campaign_datum: CampaignDatum,
+) {
+  let campaign_datum_data: Data = campaign_datum
+  let sum_support =
+    fn(sum, Input { output: Output { address, datum, value, .. }, .. }) {
+      if address == script_address {
+        when datum is {
+          InlineDatum(input_datum) ->
+            if input_datum is BackerDatum {
+              assets.lovelace_of(value) + sum
+            } else {
+              sum
+            }
+          _ -> sum
+        }
+      } else {
+        sum
+      }
+    }
+  let supports = tx.inputs |> list.reduce(0, sum_support)
+  list.any(
+    tx.outputs,
+    fn(o) {
+      when o.datum is {
+        InlineDatum(datum_data) -> and {
+            campaign_datum_data == datum_data,
+            o.address == script_address,
+            assets.lovelace_of(o.value) >= supports,
+          }
+        _ -> False
+      }
+    },
+  )
+}
