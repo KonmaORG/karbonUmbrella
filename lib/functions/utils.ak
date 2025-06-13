@@ -11,7 +11,8 @@ use cardano/transaction.{
 use cardano/value
 use constants
 use types/datum.{
-  BackerDatum, CampaignDatum, CampaignState, ConfigDatum, ProjectDatum,
+  BackerDatum, CampaignDatum, CampaignState, ConfigDatum, Milestone,
+  ProjectDatum,
 }
 use types/token.{Token}
 use types/utils.{AddressTuple, PaymentKeyHash, StakeKeyHash}
@@ -344,4 +345,104 @@ pub fn must_pay_to_script(
       }
     },
   )
+}
+
+pub fn updating_datum_milestone(datum: CampaignDatum) -> CampaignDatum {
+  let milestones: Milestone = datum.milestone
+  expect Some(index) = list.index_of(milestones, False)
+  let updated_milestones =
+    list.indexed_map(
+      milestones,
+      fn(i, m) {
+        if i == index {
+          !m
+        } else {
+          m
+        }
+      },
+    )
+
+  CampaignDatum { ..datum, milestone: updated_milestones }
+}
+
+pub fn must_reach_goal_and_send_to_creator(
+  tx: Transaction,
+  self_address: Address,
+  campaign_datum: CampaignDatum,
+) {
+  let CampaignDatum { creator, milestone, .. } = campaign_datum
+  let remaining_milestone = list.count(milestone, fn(m) { m == False })
+
+  // helper fn to sum backer supports from TxInputs
+  let sum_support =
+    fn(sum, Input { output: Output { address, datum, value, .. }, .. }) {
+      if address == self_address {
+        when datum is {
+          InlineDatum(input_datum) ->
+            if input_datum is CampaignDatum {
+              assets.lovelace_of(value) + sum
+            } else {
+              sum
+            }
+          _ -> sum
+        }
+      } else {
+        sum
+      }
+    }
+  let supports = tx.inputs |> list.reduce(0, sum_support)
+  // expect supports >= goal
+  let (platform_pay, creator_pay) = calculate_payout_platform_creator(supports)
+  let creator_address = addresses.from_wallet(creator)
+
+  // helper fn to sum TxOutputs Lovelace sent to creator
+  let sum_creator =
+    fn(sum, Output { address, value, .. }) {
+      if address == creator_address {
+        assets.lovelace_of(value) + sum
+      } else {
+        sum
+      }
+    }
+
+  let sum_platform =
+    fn(sum, Output { address, value, .. }) {
+      when address.payment_credential is {
+        VerificationKey(vkh) ->
+          if vkh == constants.roylaty_addr.pkh {
+            assets.lovelace_of(value) + sum
+          } else {
+            sum
+          }
+        _ -> sum
+      }
+    }
+
+  let sum_script =
+    fn(sum, Output { address, value, .. }) {
+      if address == self_address {
+        assets.lovelace_of(value) + sum
+      } else {
+        sum
+      }
+    }
+
+  let to_script =
+    if remaining_milestone > 1 {
+      list.reduce(tx.outputs, 0, sum_script) >= supports - supports / remaining_milestone
+    } else {
+      True
+    }
+
+  and {
+    to_script,
+    list.reduce(tx.outputs, 0, sum_creator) >= creator_pay / remaining_milestone,
+    list.reduce(tx.outputs, 0, sum_platform) >= platform_pay / remaining_milestone,
+  }
+}
+
+fn calculate_payout_platform_creator(amount: Int) -> (Int, Int) {
+  let platform = amount * 5 / 100
+  let seller = amount - platform
+  (platform, seller)
 }

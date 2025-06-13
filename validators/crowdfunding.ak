@@ -1,5 +1,4 @@
 use aiken/collection/list
-use aiken/crypto.{VerificationKeyHash}
 use cardano/address.{Address, Script}
 use cardano/addresses
 use cardano/assets.{PolicyId}
@@ -12,7 +11,7 @@ use constants
 use functions/utils
 use types/datum.{
   BackerDatum, CampaignDatum, Cancelled, ConfigDatum, Finished, Initiated,
-  Released, Running,
+  Running,
 }
 use types/moment.{Moment}
 use types/redeemer.{CampaignAction, Cancel, Finish, Refund, Release, Support}
@@ -70,7 +69,7 @@ validator campaign(config_nft: PolicyId) {
     expect Some(Input { output: Output { address: script_address, .. }, .. }) =
       transaction.find_input(tx.inputs, o_ref)
     expect Script(self_script) = script_address.payment_credential
-    let ConfigDatum { multisig_validator_group, fees_address, .. } =
+    let ConfigDatum { multisig_validator_group, .. } =
       utils.ref_datum_by_nft(
         tx.reference_inputs,
         config_nft,
@@ -127,7 +126,7 @@ validator campaign(config_nft: PolicyId) {
               tx.outputs,
               addresses.create_address(self_script, creator.sc),
             )
-          expect expected_datum_data: Data =
+          let expected_datum_data: Data =
             CampaignDatum { ..campaign_datum, state: Cancelled }
           and {
             if is_signed_by_platform? {
@@ -167,7 +166,7 @@ validator campaign(config_nft: PolicyId) {
             )
           let output_datum_data =
             find.output_datum_by_addr(tx.outputs, script_address)
-          expect expected_datum_data: Data =
+          let expected_datum_data: Data =
             CampaignDatum { ..campaign_datum, state: Finished }
           and {
             if is_signed_by_platform? {
@@ -218,22 +217,34 @@ validator campaign(config_nft: PolicyId) {
       // Release Payment
       (Some(current_datum), Release) ->
         if current_datum is campaign_datum: CampaignDatum {
-          validate_release_campaign(
-            tx,
-            self_script,
-            campaign_datum,
-            fees_address,
-            utils.script_address_from_tuple(state_token_script),
-            multisig_validator_group,
-          )
+          let updated_datum = utils.updating_datum_milestone(campaign_datum)
+          let expected_datum_data: Data = updated_datum
+          let output_datum_data =
+            find.output_datum_by_addr(tx.outputs, script_address)
+          and {
+            tx.verify_multisig(
+              tx.extra_signatories,
+              multisig_validator_group.signers,
+              multisig_validator_group.required,
+            )?,
+            utils.campaign_state(campaign_datum, Finished)?,
+            output_datum_data == expected_datum_data,
+            utils.must_reach_goal_and_send_to_creator(
+              tx,
+              script_address,
+              campaign_datum,
+            )?,
+          }
         } else {
           fail @"Invalid Refund Datum Type! Must be BackerDatum"
         }
       // NoDatum etc:
-      _ -> {
-        expect !utils.is_running_campaign(tx.reference_inputs, self_script)
-        utils.atleast_signedby(tx.extra_signatories, multisig_validator_group)
-      }
+      _ ->
+        tx.verify_multisig(
+          tx.extra_signatories,
+          multisig_validator_group.signers,
+          multisig_validator_group.required,
+        )
     }
   }
 
