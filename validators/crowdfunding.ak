@@ -28,6 +28,7 @@ validator campaign(config_nft: PolicyId) {
   ) {
     when campaign_datum.state is {
       Finished | Cancelled ->
+        // must burn the reward tokens
         assets.quantity_of(tx.mint, self_script, campaign_datum.name) <= 0
       _ -> {
         expect CampaignDatum {
@@ -66,9 +67,9 @@ validator campaign(config_nft: PolicyId) {
     o_ref: OutputReference,
     tx: Transaction,
   ) {
-    expect Some(Input { output: Output { address, .. }, .. }) =
+    expect Some(Input { output: Output { address: script_address, .. }, .. }) =
       transaction.find_input(tx.inputs, o_ref)
-    expect Script(self_script) = address.payment_credential
+    expect Script(self_script) = script_address.payment_credential
     let ConfigDatum { multisig_validator_group, fees_address, .. } =
       utils.ref_datum_by_nft(
         tx.reference_inputs,
@@ -104,7 +105,7 @@ validator campaign(config_nft: PolicyId) {
           expect InlineDatum(output_datum) = script_token_output.datum
           and {
             output_datum == current_datum,
-            utils.is_running_campaign(campaign_datum),
+            utils.campaign_state(campaign_datum, Running),
             script_reward_qty == script_reward_qty_,
             backer_lovelace_qty / fraction_amount == backer_reward_qty,
           }
@@ -138,11 +139,19 @@ validator campaign(config_nft: PolicyId) {
               // must be signed by creator
               list.has(tx.extra_signatories, creator.pkh)
             },
-            utils.is_running_campaign(campaign_datum),
+            utils.campaign_state(campaign_datum, Running),
             (output_datum_data == expected_datum_data)?,
           }
         } else if current_datum is backer_datum: BackerDatum {
-          tx |> validate_refund_support(self_script, backer_datum)
+          let output_datum_data =
+            find.output_datum_by_addr(tx.outputs, script_address)
+          expect campaign_datum: CampaignDatum = output_datum_data
+          and {
+            utils.campaign_state(campaign_datum, Cancelled),
+            utils.must_refund(tx, script_address, backer_datum)?,
+            // must burn reward tokens
+            assets.quantity_of(tx.mint, self_script, campaign_datum.name) <= 0,
+          }
         } else {
           fail @"Invalid Cancel Datum Type! Must be CampaignDatum"
         }

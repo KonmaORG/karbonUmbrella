@@ -3,13 +3,16 @@ use aiken/collection/dict
 use aiken/collection/list
 use aiken/crypto
 use cardano/address.{Address, Inline, Script, VerificationKey}
+use cardano/addresses
 use cardano/assets.{AssetName, PolicyId, Value}
 use cardano/transaction.{
   InlineDatum, Input, Output, OutputReference, Transaction,
 }
 use cardano/value
 use constants
-use types/datum.{CampaignDatum, ConfigDatum, ProjectDatum, Running}
+use types/datum.{
+  BackerDatum, CampaignDatum, CampaignState, ConfigDatum, ProjectDatum,
+}
 use types/token.{Token}
 use types/utils.{AddressTuple, PaymentKeyHash, StakeKeyHash}
 use validation/payout
@@ -259,7 +262,48 @@ pub fn must_send_remaining_token_to_addr(
   }
 }
 
-pub fn is_running_campaign(datum: CampaignDatum) -> Bool {
+pub fn campaign_state(datum: CampaignDatum, state: CampaignState) -> Bool {
   // must consume/refer state token UTxO
-  datum.state == Running
+  datum.state == state
+}
+
+pub fn must_refund(
+  tx: Transaction,
+  script_address: Address,
+  backer_datum: BackerDatum,
+) {
+  let backer_datum_data: Data = backer_datum
+  let backer_address: Address = addresses.from_wallet(backer_datum)
+
+  // collect input backer support lovelaces from self address
+  let sum_input =
+    fn(sum, Input { output: Output { address, datum, value, .. }, .. }) {
+      if address == script_address {
+        when datum is {
+          InlineDatum(input_datum) ->
+            if input_datum == backer_datum_data {
+              assets.lovelace_of(value) + sum
+            } else {
+              sum
+            }
+          _ -> sum
+        }
+      } else {
+        sum
+      }
+    }
+  let input_lovelace = list.reduce(tx.inputs, 0, sum_input)
+
+  // collect output lovelaces to backer address
+  let sum_output =
+    fn(sum, Output { address, value, .. }) {
+      if address == backer_address {
+        assets.lovelace_of(value) + sum
+      } else {
+        sum
+      }
+    }
+  let output_lovelace = list.reduce(tx.outputs, 0, sum_output)
+
+  output_lovelace >= input_lovelace
 }
