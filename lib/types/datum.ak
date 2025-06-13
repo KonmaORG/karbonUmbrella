@@ -61,3 +61,6 @@ pub type CampaignDatum {
   state: CampaignState,
   fraction: Int,
 }
+
+pub type BackerDatum =
+  Wallet

@@ -6,15 +6,18 @@ use cardano/assets.{PolicyId}
 use cardano/transaction.{
   InlineDatum, Input, Output, OutputReference, Transaction,
 }
+use cardano/tx
 use cardano/value
 use constants
 use functions/utils
 use types/datum.{
-  CampaignDatum, Cancelled, ConfigDatum, Finished, Initiated, Released, Running,
+  BackerDatum, CampaignDatum, Cancelled, ConfigDatum, Finished, Initiated,
+  Released, Running,
 }
 use types/moment.{Moment}
 use types/redeemer.{CampaignAction, Cancel, Finish, Refund, Release, Support}
 use types/token.{Token}
+use validation/find
 use validation/payout
 
 validator campaign(config_nft: PolicyId) {
@@ -111,13 +114,33 @@ validator campaign(config_nft: PolicyId) {
       // Cancel campaign:
       (Some(current_datum), Cancel) ->
         if current_datum is campaign_datum: CampaignDatum {
-          validate_cancel_campaign(
-            tx,
-            self_script,
-            campaign_datum,
-            multisig_validator_group,
-            utils.script_address_from_tuple(state_token_script),
-          )
+          let CampaignDatum { creator, deadline, .. } = campaign_datum
+          let is_signed_by_platform =
+            tx.verify_multisig(
+              tx.extra_signatories,
+              multisig_validator_group.signers,
+              multisig_validator_group.required,
+            )
+          let output_datum_data =
+            find.output_datum_by_addr(
+              tx.outputs,
+              addresses.create_address(self_script, creator.sc),
+            )
+          expect expected_datum_data: Data =
+            CampaignDatum { ..campaign_datum, state: Cancelled }
+          and {
+            if is_signed_by_platform? {
+              moment.is_after(
+                Moment { start: 0, end: deadline },
+                tx.validity_range,
+              )
+            } else {
+              // must be signed by creator
+              list.has(tx.extra_signatories, creator.pkh)
+            },
+            utils.is_running_campaign(campaign_datum),
+            (output_datum_data == expected_datum_data)?,
+          }
         } else if current_datum is backer_datum: BackerDatum {
           tx |> validate_refund_support(self_script, backer_datum)
         } else {
