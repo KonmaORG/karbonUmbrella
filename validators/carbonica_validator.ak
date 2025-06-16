@@ -1,4 +1,5 @@
-//// this module  holds 2 contract one for project initiating and one for project validation
+//// This module contains two validators: 'project_initiator' for initiating projects
+//// and 'project_validation' for validating them.
 
 use aiken/collection/dict
 use cardano/address.{Script}
@@ -17,13 +18,16 @@ use types/token.{Token}
 use validation/find
 use validation/payout
 
-/// this contract implements the multisig validator logic
-/// where multiple validator will need to sign the tx to approve or reject the project
-/// also mints carbon token
+/// The `project_validation` validator manages the approval or rejection of projects.
+/// It enforces a multi-signature scheme where a group of validators must sign the transaction.
+/// This validator is also responsible for minting Carbon Offsetting Tokens (COT).
 validator project_validation(
   config_nft: PolicyId,
   validator_contract_mint: PolicyId,
 ) {
+  /// This function handles the spending of the UTxO locked at the validator address.
+  /// It ensures that the transaction is signed by the required number of multi-signature
+  /// validators defined in the configuration datum.
   spend(
     datum: Option<ProjectDatum>,
     redeemer: ProjectValidationRedeemer,
@@ -48,11 +52,11 @@ validator project_validation(
         constants.identication_tkn,
       )
 
-    // expect must_burn_less_than_0(mint, validator_contract_mint)
-    // expect
-    //   atleast_signedby(extra_signatories, ref_datum.multisig_validator_group)
+    // Handle different actions based on the redeemer.
     when redeemer.action is {
-      // 0 -> Accept
+      // Action 0: Accept the project.
+      // The project developer receives the minted COT tokens.
+      // The project's NFT is burned as part of this process.
       0 -> {
         let developer_addr = addresses.from_wallet(datum.developer)
         let tkname = utils.token_name_oref(oref)
@@ -60,9 +64,13 @@ validator project_validation(
           value.from_token(
             Token { pid: script_hash, tkn: tkname, amt: redeemer.amount },
           )
-        payout.exact(developer_addr, value, outputs)?
+        and {
+          utils.must_burn_less_than_0(mint, validator_contract_mint),
+          payout.exact(developer_addr, value, outputs)?,
+        }
       }
-      // 1 -> Reject
+      // Action 1: Reject the project.
+      // The project's NFT is burned, and the transaction must be signed by the multisig group.
       1 -> and {
           utils.must_burn_less_than_0(mint, validator_contract_mint),
           tx.verify_multisig(
@@ -75,6 +83,9 @@ validator project_validation(
     }
   }
 
+  /// This function handles the minting and burning of tokens.
+  /// It's responsible for minting Carbon Offsetting Tokens (COT) when a project is approved
+  /// and burning COT in exchange for Carbon Emission Tokens (CET).
   mint(
     redeemer: ProjectValidationRedeemer,
     policy_id: PolicyId,
@@ -90,10 +101,12 @@ validator project_validation(
       )
 
     when redeemer.action is {
+      // Action 0: Mint COT for an approved project.
       0 -> {
         expect Some(oref_input) = find_input(inputs, redeemer.oref)
         expect InlineDatum(oref_input_datum) = oref_input.output.datum
         expect _: ProjectDatum = oref_input_datum
+        // Generate the token name from the output reference.
         let tkname = utils.token_name_oref(redeemer.oref)
         and {
           utils.must_burn_less_than_0(mint, validator_contract_mint),
@@ -105,6 +118,8 @@ validator project_validation(
           ),
         }
       }
+      // Action 1: Burn COT.
+      // This can be done either by a multisig approval or by providing an equivalent amount of CET to be burned.
       1 -> {
         let multi_sig =
           tx.verify_multisig(
@@ -134,12 +149,16 @@ validator project_validation(
   }
 }
 
-/// this contract mints the project_nft and send it to project_validation contract
-/// 
+/// This validator handles the creation of new projects.
+/// It mints a unique project NFT and sends it to the `project_validation` contract for approval.
 validator project_initiator(config_nft: PolicyId) {
   mint(redeemer: Int, policy_id: PolicyId, tx: Transaction) {
     let Transaction { mint, reference_inputs, outputs, .. } = tx
     when redeemer is {
+      // Action 0: Create a new project.
+      // This action validates the project's category, ensures the platform fee is paid,
+      // mints the project NFT, and sends the NFT and project datum to the
+      // `project_validation` contract.
       0 -> {
         let ref_datum =
           utils.ref_datum_by_nft(
@@ -147,13 +166,13 @@ validator project_initiator(config_nft: PolicyId) {
             config_nft,
             constants.identication_tkn,
           )
+        // Get the platform fee address from the reference datum.
         let payout_addr = addresses.from_wallet(ref_datum.fees_address)
+        // Get the project validation contract address.
         let project_validation_addr =
           addresses.from_wallet(ref_datum.spend_address)
         let project_validation_output =
           find.output_by_addr(outputs, project_validation_addr)
-        // got error while doing this
-        // output.address == from_verification_key(ref_datum.spend_address)
         expect InlineDatum(script_data) = project_validation_output.datum
         expect project_validation_datum: ProjectDatum = script_data
         let payout_value =
@@ -181,6 +200,8 @@ validator project_initiator(config_nft: PolicyId) {
           )?,
         }
       }
+      // Action 1: Burn a project NFT.
+      // This allows for the burning of one or more project NFTs at the same time.
       1 -> utils.must_burn_less_than_0(mint, policy_id)
 
       _ -> fail
