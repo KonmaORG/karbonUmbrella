@@ -18,7 +18,14 @@ use types/token.{Token}
 use types/utils.{AddressTuple, PaymentKeyHash, StakeKeyHash}
 use validation/payout
 
-///   "validation/payout"  from logical mechanism
+/// Checks if a given project category is present in the list of supported categories.
+///
+/// # Arguments
+/// * `categories` - A list of supported category names.
+/// * `category` - The category to check.
+///
+/// # Returns
+/// `True` if the category is supported, `False` otherwise.
 pub fn is_category_from_supported_categories(
   categories: List<ByteArray>,
   category: ByteArray,
@@ -26,12 +33,25 @@ pub fn is_category_from_supported_categories(
   list.has(categories, category)
 }
 
+/// Ensures that a transaction output sent to a script contains a specific NFT and a valid `ProjectDatum`.
+///
+/// # Arguments
+/// * `output` - The transaction output to validate.
+/// * `policy_id` - The policy ID of the required NFT.
 pub fn must_send_nft_and_datum_to_script(output: Output, policy_id: PolicyId) {
   expect InlineDatum(output_datum) = output.datum
   expect _: ProjectDatum = output_datum
   list.has(output.value |> assets.policies, policy_id)?
 }
 
+/// Verifies that all tokens being minted under a specific policy have a negative amount (i.e., are being burned).
+///
+/// # Arguments
+/// * `mint` - The `Value` from the transaction's mint field.
+/// * `policy_id` - The policy ID of the tokens to check.
+///
+/// # Returns
+/// `True` if all specified tokens are being burned, otherwise fails.
 pub fn must_burn_less_than_0(mint: Value, policy_id: PolicyId) -> Bool {
   let values: Pairs<AssetName, Int> =
     mint
@@ -41,6 +61,15 @@ pub fn must_burn_less_than_0(mint: Value, policy_id: PolicyId) -> Bool {
   list.all(values, fn(Pair(_, amount)) { amount < 0 })?
 }
 
+/// Finds and returns the `ConfigDatum` from a reference input that contains a specific NFT.
+///
+/// # Arguments
+/// * `inputs` - The list of reference inputs from the transaction.
+/// * `pid` - The policy ID of the identification NFT.
+/// * `tkn` - The asset name of the identification NFT.
+///
+/// # Returns
+/// The `ConfigDatum` found in the reference input. Fails if not found or if the datum type is incorrect.
 pub fn ref_datum_by_nft(
   inputs: List<Input>,
   pid: PolicyId,
@@ -54,6 +83,14 @@ pub fn ref_datum_by_nft(
   }
 }
 
+/// Validates that a specific token is sent to a script address derived from a given address tuple,
+/// and that the output datum matches the address tuple.
+///
+/// # Arguments
+/// * `outputs` - The list of transaction outputs.
+/// * `policy_id` - The policy ID of the token.
+/// * `token_name` - The asset name of the token.
+/// * `redeemer` - The `AddressTuple` containing the payment and stake key hashes.
 pub fn script_address_check(
   outputs: List<Output>,
   policy_id: PolicyId,
@@ -73,6 +110,16 @@ pub fn script_address_check(
   }
 }
 
+/// Recursively searches through a list of inputs to find the inline datum of the input
+/// that contains a specific NFT.
+///
+/// # Arguments
+/// * `inputs` - The list of inputs to search.
+/// * `pid` - The policy ID of the NFT.
+/// * `tkn` - The asset name of the NFT.
+///
+/// # Returns
+/// The `Data` from the inline datum of the matching input. Fails if no matching input with a datum is found.
 pub fn input_datum_by_nft(
   inputs: List<Input>,
   pid: PolicyId,
@@ -82,7 +129,6 @@ pub fn input_datum_by_nft(
     [input, ..rest] ->
       if value.prove_exact_nft(input.output.value, pid, tkn) {
         when input.output.datum is {
-          // inline and holding the nft
           InlineDatum(inbound_datum) -> inbound_datum
           _ -> fail @"No Datum On Input"
         }
@@ -93,6 +139,15 @@ pub fn input_datum_by_nft(
   }
 }
 
+/// Filters a list of outputs, returning only those that contain a specific token.
+///
+/// # Arguments
+/// * `outputs` - The list of outputs to filter.
+/// * `pid` - The policy ID of the token.
+/// * `tkn` - The asset name of the token.
+///
+/// # Returns
+/// A new list containing only the outputs with the specified token.
 pub fn outputs_by_pid(
   outputs: List<Output>,
   pid: PolicyId,
@@ -111,6 +166,14 @@ pub fn outputs_by_pid(
   output
 }
 
+/// Filters a list of outputs, returning only those sent to a specific address.
+///
+/// # Arguments
+/// * `outputs` - The list of outputs to filter.
+/// * `addr` - The address to match.
+///
+/// # Returns
+/// A new list containing only the outputs sent to the specified address.
 pub fn outputs_by_addr(outputs: List<Output>, addr: Address) -> List<Output> {
   let output =
     when outputs is {
@@ -125,6 +188,19 @@ pub fn outputs_by_addr(outputs: List<Output>, addr: Address) -> List<Output> {
   output
 }
 
+/// A private helper function to recursively calculate the total amount of CET and COT tokens in a list of inputs.
+///
+/// # Arguments
+/// * `inputs` - The list of inputs to process.
+/// * `cet_pid` - The policy ID for CET tokens.
+/// * `cot_pid` - The policy ID for COT tokens.
+/// * `cet_tkn` - The asset name for CET tokens.
+/// * `cot_tkn` - The asset name for COT tokens.
+/// * `cet_qty` - The accumulated quantity of CET tokens.
+/// * `cot_qty` - The accumulated quantity of COT tokens.
+///
+/// # Returns
+/// A tuple containing the total quantities of CET and COT tokens.
 fn do_total_token_amount(
   inputs: List<Input>,
   cet_pid: PolicyId,
@@ -154,6 +230,14 @@ fn do_total_token_amount(
   }
 }
 
+/// Constructs a script address with a delegation part derived from the stake credential of the first input.
+///
+/// # Arguments
+/// * `script` - The policy ID of the script, used as the payment credential.
+/// * `inputs` - The list of transaction inputs.
+///
+/// # Returns
+/// A new `Address` with the script as the payment part and the input's stake key as the delegation part.
 pub fn get_output_addr(script: PolicyId, inputs: List<Input>) {
   expect Some(input) = list.head(inputs)
   when input.output.address.stake_credential is {
@@ -164,13 +248,26 @@ pub fn get_output_addr(script: PolicyId, inputs: List<Input>) {
   }
 }
 
+/// Generates a unique token name by hashing an `OutputReference`.
+///
+/// # Arguments
+/// * `oref` - The `OutputReference` to hash.
+///
+/// # Returns
+/// A `ByteArray` representing the Blake2b-224 hash of the serialized `OutputReference`.
 pub fn token_name_oref(oref: OutputReference) {
   let hashed = oref |> cbor.serialise |> crypto.blake2b_224
   hashed
 }
 
+/// Calculates the payout amounts for the seller and the marketplace based on a fixed royalty percentage.
+///
+/// # Arguments
+/// * `amount` - The total sale amount.
+///
+/// # Returns
+/// A tuple containing the `Value` for the marketplace royalty and the `Value` for the seller's payout.
 pub fn calculate_payout_royalty(amount: Int) {
-  // royalty is constant
   let marketplace = amount * constants.royalty_amt / 100
   let seller = amount - marketplace
   let marketplace_payout =
@@ -179,6 +276,14 @@ pub fn calculate_payout_royalty(amount: Int) {
   (marketplace_payout, seller_payout)
 }
 
+/// Finds and returns the user script output by matching the stake key of an input with an output.
+///
+/// # Arguments
+/// * `inputs` - The list of transaction inputs.
+/// * `outputs` - The list of transaction outputs.
+///
+/// # Returns
+/// The `Output` that is sent to the user's script address. Fails if no matching output is found.
 pub fn user_script_address(inputs: List<Input>, outputs: List<Output>) {
   expect Some(input) = list.head(inputs)
   expect Some(Inline(VerificationKey(skh))) =
@@ -195,6 +300,13 @@ pub fn user_script_address(inputs: List<Input>, outputs: List<Output>) {
   }
 }
 
+/// Creates a script address from a tuple of payment and stake key hashes.
+///
+/// # Arguments
+/// * `key_hash_tuple` - A tuple containing the `PaymentKeyHash` and `StakeKeyHash`.
+///
+/// # Returns
+/// A new `Address` with a script payment credential and an optional stake credential.
 pub fn script_address_from_tuple(key_hash_tuple: (PaymentKeyHash, StakeKeyHash)) {
   let (pkh, skh) = key_hash_tuple
   Address {
@@ -207,6 +319,14 @@ pub fn script_address_from_tuple(key_hash_tuple: (PaymentKeyHash, StakeKeyHash))
   }
 }
 
+/// Finds and returns the first input that contains a token with the given policy ID.
+///
+/// # Arguments
+/// * `inputs` - The list of inputs to search.
+/// * `policy_id` - The policy ID to look for.
+///
+/// # Returns
+/// The first `Input` that contains a token with the specified policy ID. Fails if no such input is found.
 pub fn find_ref_input(inputs: List<Input>, policy_id: PolicyId) {
   expect Some(input) =
     list.find(
@@ -216,6 +336,15 @@ pub fn find_ref_input(inputs: List<Input>, policy_id: PolicyId) {
   input
 }
 
+/// Checks that there is exactly one output sent to a specific address containing a token with a given policy ID.
+///
+/// # Arguments
+/// * `outputs` - The list of outputs to check.
+/// * `policy_id` - The policy ID of the token.
+/// * `address` - The address the output must be sent to.
+///
+/// # Returns
+/// `True` if the condition is met, `False` otherwise.
 pub fn must_have_one_output_with_policy(
   outputs: List<Output>,
   policy_id: PolicyId,
@@ -232,6 +361,16 @@ pub fn must_have_one_output_with_policy(
   ) == 1
 }
 
+/// Ensures that the correct amount of remaining CET and COT tokens are sent back to the user's script address after a burn operation.
+///
+/// # Arguments
+/// * `tx` - The current transaction.
+/// * `cet_pid` - The policy ID for CET tokens.
+/// * `cot_pid` - The policy ID for COT tokens.
+/// * `cet_tkn` - The asset name for CET tokens.
+/// * `cot_tkn` - The asset name for COT tokens.
+/// * `burn_qty` - The quantity of tokens being burned (a negative value).
+/// * `user_script` - The user's script address where the remaining tokens should be sent.
 pub fn must_send_remaining_token_to_addr(
   tx: Transaction,
   cet_pid: PolicyId,
@@ -241,7 +380,6 @@ pub fn must_send_remaining_token_to_addr(
   burn_qty: Int,
   user_script: Address,
 ) {
-  // let value = concat_inputs_value(inputs, assets.zero)
   let (cet_qty, cot_qty) =
     do_total_token_amount(tx.inputs, cet_pid, cot_pid, cet_tkn, cot_tkn, 0, 0)
 
@@ -255,7 +393,6 @@ pub fn must_send_remaining_token_to_addr(
       value.from_tokens(
         [
           Token { pid: cet_pid, tkn: cet_tkn, amt: o_cet },
-          //burn_qty is negative value
           Token { pid: cot_pid, tkn: cot_tkn, amt: o_cot },
         ],
       )
@@ -263,11 +400,27 @@ pub fn must_send_remaining_token_to_addr(
   }
 }
 
+/// Checks if the campaign's current state matches the expected state.
+///
+/// # Arguments
+/// * `datum` - The `CampaignDatum` of the campaign.
+/// * `state` - The expected `CampaignState`.
+///
+/// # Returns
+/// `True` if the states match, `False` otherwise.
 pub fn campaign_state(datum: CampaignDatum, state: CampaignState) -> Bool {
-  // must consume/refer state token UTxO
   datum.state == state
 }
 
+/// Validates that a backer is refunded at least the amount they contributed.
+///
+/// # Arguments
+/// * `tx` - The current transaction.
+/// * `script_address` - The address of the campaign script.
+/// * `backer_datum` - The `BackerDatum` identifying the backer to be refunded.
+///
+/// # Returns
+/// `True` if the output lovelace to the backer is greater than or equal to the input lovelace from the backer.
 pub fn must_refund(
   tx: Transaction,
   script_address: Address,
@@ -276,7 +429,7 @@ pub fn must_refund(
   let backer_datum_data: Data = backer_datum
   let backer_address: Address = addresses.from_wallet(backer_datum)
 
-  // collect input backer support lovelaces from self address
+  // Sum all lovelace from inputs belonging to the backer at the script address.
   let sum_input =
     fn(sum, Input { output: Output { address, datum, value, .. }, .. }) {
       if address == script_address {
@@ -295,7 +448,7 @@ pub fn must_refund(
     }
   let input_lovelace = list.reduce(tx.inputs, 0, sum_input)
 
-  // collect output lovelaces to backer address
+  // Sum all lovelace from outputs sent to the backer's address.
   let sum_output =
     fn(sum, Output { address, value, .. }) {
       if address == backer_address {
@@ -309,12 +462,23 @@ pub fn must_refund(
   output_lovelace >= input_lovelace
 }
 
+/// Ensures that all funds contributed by backers are consolidated into a single output at the script address
+/// when a campaign is finished.
+///
+/// # Arguments
+/// * `tx` - The current transaction.
+/// * `script_address` - The address of the campaign script.
+/// * `campaign_datum` - The `CampaignDatum` for the finished campaign.
+///
+/// # Returns
+/// `True` if an output with the correct datum and sufficient funds is found at the script address.
 pub fn must_pay_to_script(
   tx: Transaction,
   script_address: Address,
   campaign_datum: CampaignDatum,
 ) {
   let campaign_datum_data: Data = campaign_datum
+  // Sum all lovelace from inputs that are from backers.
   let sum_support =
     fn(sum, Input { output: Output { address, datum, value, .. }, .. }) {
       if address == script_address {
@@ -332,6 +496,7 @@ pub fn must_pay_to_script(
       }
     }
   let supports = tx.inputs |> list.reduce(0, sum_support)
+  // Check if any output at the script address contains the campaign datum and at least the total supported amount.
   list.any(
     tx.outputs,
     fn(o) {
@@ -347,6 +512,13 @@ pub fn must_pay_to_script(
   )
 }
 
+/// Updates the campaign datum by marking the next uncompleted milestone as complete.
+///
+/// # Arguments
+/// * `datum` - The current `CampaignDatum`.
+///
+/// # Returns
+/// A new `CampaignDatum` with the next milestone in the list set to `True`.
 pub fn updating_datum_milestone(datum: CampaignDatum) -> CampaignDatum {
   let milestones: Milestone = datum.milestone
   expect Some(index) = list.index_of(milestones, False)
@@ -365,6 +537,13 @@ pub fn updating_datum_milestone(datum: CampaignDatum) -> CampaignDatum {
   CampaignDatum { ..datum, milestone: updated_milestones }
 }
 
+/// Validates the payout for a completed milestone.
+/// It ensures that the campaign goal has been met and that the creator and platform receive their correct share of the funds for the current milestone.
+///
+/// # Arguments
+/// * `tx` - The current transaction.
+/// * `self_address` - The address of the campaign script.
+/// * `campaign_datum` - The `CampaignDatum` of the campaign.
 pub fn must_reach_goal_and_send_to_creator(
   tx: Transaction,
   self_address: Address,
@@ -373,7 +552,7 @@ pub fn must_reach_goal_and_send_to_creator(
   let CampaignDatum { creator, milestone, .. } = campaign_datum
   let remaining_milestone = list.count(milestone, fn(m) { m == False })
 
-  // helper fn to sum backer supports from TxInputs
+  // Sum the total funds collected, which are held in the CampaignDatum UTxO.
   let sum_support =
     fn(sum, Input { output: Output { address, datum, value, .. }, .. }) {
       if address == self_address {
@@ -391,11 +570,10 @@ pub fn must_reach_goal_and_send_to_creator(
       }
     }
   let supports = tx.inputs |> list.reduce(0, sum_support)
-  // expect supports >= goal
   let (platform_pay, creator_pay) = calculate_payout_platform_creator(supports)
   let creator_address = addresses.from_wallet(creator)
 
-  // helper fn to sum TxOutputs Lovelace sent to creator
+  // Sum the total lovelace paid to the creator in this transaction.
   let sum_creator =
     fn(sum, Output { address, value, .. }) {
       if address == creator_address {
@@ -405,6 +583,7 @@ pub fn must_reach_goal_and_send_to_creator(
       }
     }
 
+  // Sum the total lovelace paid to the platform in this transaction.
   let sum_platform =
     fn(sum, Output { address, value, .. }) {
       when address.payment_credential is {
@@ -418,6 +597,7 @@ pub fn must_reach_goal_and_send_to_creator(
       }
     }
 
+  // Sum the total lovelace returned to the script address.
   let sum_script =
     fn(sum, Output { address, value, .. }) {
       if address == self_address {
@@ -427,6 +607,7 @@ pub fn must_reach_goal_and_send_to_creator(
       }
     }
 
+  // Ensure that if there are remaining milestones, the correct amount of funds is returned to the script.
   let to_script =
     if remaining_milestone > 1 {
       list.reduce(tx.outputs, 0, sum_script) >= supports - supports / remaining_milestone
@@ -436,11 +617,20 @@ pub fn must_reach_goal_and_send_to_creator(
 
   and {
     to_script,
+    // Verify that the creator receives at least their share for the current milestone.
     list.reduce(tx.outputs, 0, sum_creator) >= creator_pay / remaining_milestone,
+    // Verify that the platform receives at least its share for the current milestone.
     list.reduce(tx.outputs, 0, sum_platform) >= platform_pay / remaining_milestone,
   }
 }
 
+/// A private helper function to calculate the payout distribution between the platform and the campaign creator.
+///
+/// # Arguments
+/// * `amount` - The total amount to be distributed.
+///
+/// # Returns
+/// A tuple containing the platform's share and the creator's share.
 fn calculate_payout_platform_creator(amount: Int) -> (Int, Int) {
   let platform = amount * 5 / 100
   let seller = amount - platform
