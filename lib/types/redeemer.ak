@@ -1,5 +1,6 @@
 use cardano/assets.{PolicyId}
 use cardano/transaction.{OutputReference}
+use types/utils.{Vote, Voter}
 
 /// A redeemer for the `identification_nft` validator, specifying whether to mint or burn the NFT.
 pub type Action {
@@ -45,4 +46,12 @@ pub type CampaignAction {
   Refund
   /// The action for the campaign creator to release milestone-based funds.
   Release
+}
+
+// -----DAO REDEEMER
+pub type GovernanceRedeemer {
+  SubmitProposal { proposal_id: ByteArray }
+  VoteProposal { proposal_id: ByteArray, voter: Voter, vote: Vote }
+  ExecuteProposal { proposal_id: ByteArray }
+  RejectProposal { proposal_id: ByteArray }
 }

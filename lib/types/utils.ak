@@ -1,5 +1,7 @@
+use aiken/collection/dict.{Dict}
 use aiken/crypto.{VerificationKeyHash}
 use cardano/assets.{AssetName, PolicyId}
+use types/wallet.{Wallet}
 
 /// Represents a specific type of asset, uniquely identified by its policy ID and asset name.
 pub type AssetClass {
@@ -32,3 +34,39 @@ pub type Multisig {
   /// A list of the verification key hashes of the authorized signers.
   signers: List<VerificationKeyHash>,
 }
+
+// ---- DAO UTILS
+// utils
+pub type ProposalState {
+  InProgess
+  Executed
+  Rejected
+}
+
+pub type Voter =
+  VerificationKeyHash
+
+pub type VotesCount {
+  yes: Int,
+  no: Int,
+  abstain: Int,
+}
+
+pub type Vote {
+  Yes
+  No
+  Abstain
+  Pending
+}
+
+// Proposal Action with Values needed to be updated
+// possible action // atleast/Multisig.required
+pub type ProposalAction {
+  ValidatorAdd(VerificationKeyHash)
+  ValidatorRemove(VerificationKeyHash)
+  FeeAmountUpdate(Int)
+  FeeAddressUpdate(Wallet)
+}
+
+pub type Votes =
+  Dict<Voter, Vote>

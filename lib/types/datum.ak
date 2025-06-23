@@ -1,5 +1,8 @@
 use cardano/assets.{PolicyId}
-use types/utils.{AssetClass, Multisig}
+use types/moment.{Moment}
+use types/utils.{
+  AssetClass, Multisig, ProposalAction, ProposalState, Voter, Votes, VotesCount,
+}
 use types/wallet.{Wallet}
 
 /// The main configuration datum for the entire protocol.
@@ -22,6 +25,8 @@ pub type ConfigDatum {
   cet_policyid: PolicyId,
   /// The policy ID of the Carbon Offsetting Token (COT).
   cot_policyid: PolicyId,
+  /// The wallet address for the DAO.
+  dao_policyid: PolicyId,
 }
 
 /// The datum for a project submitted for validation.
@@ -105,3 +110,15 @@ pub type CampaignDatum {
 /// The datum for a campaign backer, represented by their wallet.
 pub type BackerDatum =
   Wallet
+
+// -----DAO DATUM
+
+pub type GovernanceDatum {
+  proposal_id: ByteArray,
+  submitted_by: Voter,
+  proposal_action: ProposalAction,
+  votes: Votes,
+  votes_count: VotesCount,
+  deadline: Moment,
+  proposal_state: ProposalState,
+}
