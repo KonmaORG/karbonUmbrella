@@ -112,13 +112,20 @@ pub type BackerDatum =
   Wallet
 
 // -----DAO DATUM
-
+/// The datum for a governance proposal.
 pub type GovernanceDatum {
+  /// A unique identifier for the proposal.
   proposal_id: ByteArray,
+  /// The voter who submitted the proposal.
   submitted_by: Voter,
+  /// The action to be taken if the proposal is approved.
   proposal_action: ProposalAction,
+  /// A dictionary mapping voters to their votes.
   votes: Votes,
+  /// A count of the 'Yes', 'No', and 'Abstain' votes.
   votes_count: VotesCount,
+  /// The deadline for voting on the proposal.
   deadline: Moment,
+  /// The current state of the proposal (e.g., InProgress, Executed, Rejected).
   proposal_state: ProposalState,
 }

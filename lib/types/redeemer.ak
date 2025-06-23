@@ -49,9 +49,14 @@ pub type CampaignAction {
 }
 
 // -----DAO REDEEMER
+/// A redeemer for the governance validator, specifying the action to be taken on a proposal.
 pub type GovernanceRedeemer {
+  /// The action to submit a new proposal.
   SubmitProposal { proposal_id: ByteArray }
+  /// The action to vote on an existing proposal.
   VoteProposal { proposal_id: ByteArray, voter: Voter, vote: Vote }
+  /// The action to execute an approved proposal.
   ExecuteProposal { proposal_id: ByteArray }
+  /// The action to reject a proposal.
   RejectProposal { proposal_id: ByteArray }
 }

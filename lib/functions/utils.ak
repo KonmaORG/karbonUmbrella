@@ -84,6 +84,15 @@ pub fn ref_datum_by_nft(
   }
 }
 
+/// Finds and returns the `ConfigDatum` from a transaction output that contains a specific NFT.
+///
+/// # Arguments
+/// * `outputs` - The list of transaction outputs to search.
+/// * `pid` - The policy ID of the identification NFT.
+/// * `tkn` - The asset name of the identification NFT.
+///
+/// # Returns
+/// The `ConfigDatum` found in the output. Fails if not found or if the datum type is incorrect.
 pub fn output_ref_datum_by_nft(
   outputs: List<Output>,
   pid: PolicyId,
@@ -651,6 +660,15 @@ fn calculate_payout_platform_creator(amount: Int) -> (Int, Int) {
   (platform, seller)
 }
 
+/// Finds and returns the first transaction output that contains a specific NFT.
+///
+/// # Arguments
+/// * `outputs` - The list of outputs to search.
+/// * `pid` - The policy ID of the NFT.
+/// * `tkn` - The asset name of the NFT.
+///
+/// # Returns
+/// The first `Output` that contains the specified NFT. Fails if no such output is found.
 pub fn output_by_nft(
   outputs: List<Output>,
   pid: PolicyId,
@@ -667,6 +685,13 @@ pub fn output_by_nft(
   }
 }
 
+/// Extracts and returns a `GovernanceDatum` from a generic `Data` object.
+///
+/// # Arguments
+/// * `data` - The `Data` object to be converted.
+///
+/// # Returns
+/// A `GovernanceDatum` if the conversion is successful. Fails if the `Data` does not match the `GovernanceDatum` structure.
 pub fn governance_datum_from_data(data: Data) -> GovernanceDatum {
   expect GovernanceDatum {
     proposal_id,
