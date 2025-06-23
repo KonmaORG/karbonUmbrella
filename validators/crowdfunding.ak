@@ -1,4 +1,4 @@
-// This module implements a comprehensive crowdfunding validator.
+//// This module implements a comprehensive crowdfunding validator.
 
 use aiken/collection/list
 use cardano/address.{Address, Script}

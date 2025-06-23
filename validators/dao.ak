@@ -1,3 +1,9 @@
+//// DAO Proposal Management Validator
+//// This validator manages the lifecycle of DAO proposals, including voting and execution.
+//// It ensures that proposals can only be voted on when they are in progress, and that
+//// they can only be executed after the voting period has ended and the proposal has been approved.
+//// It also handles the rejection of proposals that fail to meet the necessary criteria.
+
 use aiken/collection/dict
 use aiken/collection/list
 use cardano/address.{Script}

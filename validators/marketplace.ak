@@ -1,3 +1,7 @@
+//// Marketplace validator for the Karbonstore
+//// This validator implements a simple marketplace for assets, allowing owners to list Carbon Offsetting Tokens (COT) for sale and buyers to purchase them.
+//// It also enforces a royalty fee on each sale.
+
 use aiken/collection/list
 use cardano/addresses
 use cardano/transaction.{OutputReference, Transaction}

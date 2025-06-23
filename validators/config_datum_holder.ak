@@ -1,5 +1,5 @@
-// This validator is responsible for safeguarding the central configuration datum of the protocol.
-// It ensures that any modifications to the configuration are authorized by a multi-signature group.
+//// This validator is responsible for safeguarding the central configuration datum of the protocol.
+//// It ensures that any modifications to the configuration are authorized by a multi-signature group.
 
 use cardano/transaction.{InlineDatum, Transaction}
 use functions/utils as lib

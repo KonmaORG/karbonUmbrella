@@ -1,5 +1,5 @@
-// This module defines a validator that manages user-specific script addresses for holding
-// Carbon Emission Tokens (CET).
+//// This module defines a validator that manages user-specific script addresses for holding
+//// Carbon Emission Tokens (CET).
 
 use aiken/collection/dict
 use cardano/address.{Script}

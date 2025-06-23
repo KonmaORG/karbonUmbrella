@@ -1,7 +1,7 @@
-// This validator manages the lifecycle of the Identification NFT, a singleton token
-// used to uniquely identify the UTxO that holds the protocol's main configuration datum.
-// The policy ID of this NFT is passed as a parameter to most other contracts,
-// allowing them to easily locate and reference the configuration.
+//// This validator manages the lifecycle of the Identification NFT, a singleton token
+//// used to uniquely identify the UTxO that holds the protocol's main configuration datum.
+//// The policy ID of this NFT is passed as a parameter to most other contracts,
+//// allowing them to easily locate and reference the configuration.
 
 use cardano/assets.{PolicyId}
 use cardano/minting
