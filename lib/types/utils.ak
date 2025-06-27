@@ -1,4 +1,3 @@
-use aiken/collection/dict.{Dict}
 use aiken/crypto.{VerificationKeyHash}
 use cardano/assets.{AssetName, PolicyId}
 use types/wallet.{Wallet}
@@ -40,7 +39,7 @@ pub type Multisig {
 /// Represents the possible states of a governance proposal.
 pub type ProposalState {
   /// The proposal is currently active and open for voting.
-  InProgess
+  InProgress
   /// The proposal has been successfully executed.
   Executed
   /// The proposal has been rejected.
@@ -86,5 +85,10 @@ pub type ProposalAction {
 }
 
 /// A type alias for a dictionary that maps voters to their votes on a proposal.
+pub type VotesStruct {
+  voter: Voter,
+  vote: Vote,
+}
+
 pub type Votes =
-  Dict<Voter, Vote>
+  List<VotesStruct>
